@@ -14,6 +14,7 @@ import pandas as pd
 
 prova = 0
 df = pd.DataFrame()
+df_accuracy = pd.DataFrame()
 
 qubits = 4
 learning_rate = 0.3
@@ -165,8 +166,20 @@ for i in range(30):
     print('Optimized energy: ', energy_new)
     params_selected = phi
     energy.append(energy_new)
+
+    #saving accuracy and depth of the circuit into a file
+    acc = float(energy_new-ground_state)
+    specs = qml.specs(circuit_VQE)(params_selected)
+    depth = specs.get('depth')
+
+    new_row= pd.Series(data={"Depth": depth, "Accuracy": acc}, name='{}'.format(i))
+    df_accuracy = df_accuracy.append(new_row, ignore_index=False)
+
+
     if (energy_new < -5.22):
         break
+
+
 
 
 #building the final circuit and evaluating the final energy
@@ -201,6 +214,10 @@ print('Ground state energy = ', energy_final)
 print('How many operators: ', len(arg_selected))
 print('Used operators: ', arg_selected)
 print('Parameters: ', params_selected)
+
+
+df_accuracy.to_pickle("/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/Depth/Circuit_depth_vs_accuracy_{}.txt".format(prova))
+
 
 new_row= pd.Series(data={"Initial state":params_initial, "Energy": energy, "Learning rate": learning_rate,
                          "Operators": len(operator_pool), "Operator_pool": operator_pool,
