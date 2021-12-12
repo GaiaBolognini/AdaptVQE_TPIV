@@ -44,7 +44,7 @@ def TFIM_Hamiltonian(coeffs_ZZ, coeffs_X):
 
 def observables (qubits, observables_pool):
     """
-    Observables of the operator pool, created in order to compute the commutator
+    Observables of the operator pool. starting from the hamiltonian
     Args:
         qubits: number of qubits
         observables_pool: set of all possible observables ([])
@@ -73,10 +73,8 @@ def observables (qubits, observables_pool):
 
     return observables_pool
 
-#DEFINITION OF THE OPERATOR POOL (H):
-# defined as the exponentialization of all the possible ZZ and X operators
-#defined in a general way for n qubits
 
+#DEFINITION OF THE OPERATORS
 def ZZ_Operator(param, ij):
     """
     exp(-i theta/2 ZiZj)
@@ -99,13 +97,47 @@ def XX_Operator(param, ij):
 
 def ZY_Operator(param, ij):
     """
-    exp(-i theta/2 ZiZj), ij nearest neighbours
+    exp(-i theta/2 ZiYj), ij nearest neighbours
     """
-    qml.RX(-np.pi/2, wires=ij[1])
+    qml.RX(np.pi/2, wires=ij[1])
     qml.CNOT(wires=[ij[0], ij[1]])
     qml.RZ(param/2, wires = ij[1])
     qml.CNOT(wires=[ij[0], ij[1]])
-    qml.RX(np.pi / 2, wires=ij[1])
+    qml.RX(-np.pi / 2, wires=ij[1])
+
+def XY_Operator(param, ij):
+    """
+    exp(-i theta/2 XiYj), ij nearest neighbours
+    """
+    qml.Hadamard(wires=ij[0])
+    qml.RX(np.pi/2, wires=ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.RZ(param/2, wires = ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.RX(-np.pi / 2, wires=ij[1])
+    qml.Hadamard(wires=ij[0])
+
+def ZX_Operator(param, ij):
+    """
+    exp(-i theta/2 ZiXj), ij nearest neighbours
+    """
+    qml.Hadamard(wires=ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.RZ(param/2, wires = ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.Hadamard(wires=ij[1])
+
+def YY_Operator(param, ij):
+    """
+    exp(-i theta/2 YiYj), ij nearest neighbours
+    """
+    qml.RX(np.pi/2, wires=ij[0])
+    qml.RX(np.pi/2, wires=ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.RZ(param/2, wires = ij[1])
+    qml.CNOT(wires=[ij[0], ij[1]])
+    qml.RX(-np.pi/2, wires=ij[1])
+    qml.RX(-np.pi/2, wires=ij[0])
 
 def ZZX_Operator(param, ijk):
     """
@@ -120,6 +152,22 @@ def ZZX_Operator(param, ijk):
     qml.CNOT(wires=[ijk[1], ijk[2]])
     qml.CNOT(wires=[ijk[0], ijk[1]])
     qml.Hadamard(wires=ijk[-1])
+
+def ZXY_Operator(param, ijk):
+    """
+    exp(-i theta/2 ZiXjYl), where i,j are nearest neighbours and l can be any other
+    ijk=wires, ij=ZX k=Y.
+    As ijk commutes it is possible to decide where X rotation applies (last wire)
+    """
+    qml.Hadamard(wires=ijk[1])
+    qml.RX(np.pi/2, wires=ijk[-1])
+    qml.CNOT(wires=[ijk[0], ijk[1]])
+    qml.CNOT(wires=[ijk[1], ijk[2]])
+    qml.RZ(param/2, wires = ijk[-1])
+    qml.CNOT(wires=[ijk[1], ijk[2]])
+    qml.CNOT(wires=[ijk[0], ijk[1]])
+    qml.RX(-np.pi/2, wires=ijk[-1])
+    qml.Hadamard(wires=ijk[1])
 
 
 def X_Operator(param, i):
@@ -138,6 +186,10 @@ def ZZZZ_Operator(param, ijkl):
     qml.CNOT(wires=[ijkl[1], ijkl[2]])
     qml.CNOT(wires=[ijkl[0], ijkl[1]])
 
+
+#DEFINITION OF THE OPERATOR POOL (H):
+# defined as the exponentialization of all the possible ZZ and X operators
+#defined in a general way for n qubits
 
 def making_operator_pool(qubits, operator_pool):
     """
@@ -199,10 +251,42 @@ def Operator_ZY(qubits, operator_pool):
         operator = lambda param, wires = wires: ZY_Operator(param, wires)
         operator_pool.append(operator)
 
+def Operator_XY(qubits, operator_pool):
+    """
+    exp(-i theta XiYj) operators, where ij are nearest neighbours.
+    """
+    for i in range(qubits):
+        wires = [i, i+1]
+        if (i == qubits-1):
+            wires=[i, 0]
+        operator = lambda param, wires = wires: XY_Operator(param, wires)
+        operator_pool.append(operator)
+
+def Operator_ZX(qubits, operator_pool):
+    """
+    exp(-i theta XiYj) operators, where ij are nearest neighbours.
+    """
+    for i in range(qubits):
+        wires = [i, i+1]
+        if (i == qubits-1):
+            wires=[i, 0]
+        operator = lambda param, wires = wires: ZX_Operator(param, wires)
+        operator_pool.append(operator)
+
+def Operator_YY(qubits, operator_pool):
+    """
+    exp(-i theta YiYj) operators, where ij are nearest neighbours.
+    """
+    for i in range(qubits):
+        wires = [i, i+1]
+        if (i == qubits-1):
+            wires=[i, 0]
+        operator = lambda param, wires = wires: YY_Operator(param, wires)
+        operator_pool.append(operator)
 
 def Operator_ZZX(qubits, operator_pool):
     """
-    exp(-itheta (ZiZjZl)) where ij are nearest neighbours
+    exp(-itheta (ZiZjXl)) where ij are nearest neighbours
     l is any other wire that is different from ij
     """
     for i in range(qubits):
@@ -216,6 +300,21 @@ def Operator_ZZX(qubits, operator_pool):
             operator_pool.append(operator)
 
 
+def Operator_ZXY(qubits, operator_pool):
+    """
+    exp(-itheta (ZiXjYl)) where ij are nearest neighbours
+    l is any other wire that is different from ij
+    """
+    combinations = itertools.permutations(range(qubits), 2)
+    combinations = [i for i in combinations]
+    for i in range (len(combinations)):
+        # taking all the wires that are different from the already defined ones
+        different_values = np.where((np.arange(qubits) != combinations[i][0]) & (np.arange(qubits) != combinations[i][1]))[0]
+        different_values = tuple(different_values)
+        for j in range(len(different_values)):
+            wires = combinations[i] + tuple([different_values[j]])
+            operator = lambda param, wires = wires: ZXY_Operator(param, wires)
+            operator_pool.append(operator)
 
 def Operator_ZZZZ(qubits, operator_pool):
     """

@@ -1,19 +1,30 @@
-#implementing TFIM Hamiltonian and finding its ground state
+#implementing TFIM Hamiltonian and finding its ground state through the Adapt-VQE algorithm
+#initializing the state with a random rotation
+#Possible to sample from the complete operatro pool
+#taking one oeprator at a time to perform the algorithm
+#using the gradient descent optimizer
+
 import pennylane as qml
 from pennylane import numpy as np
-from pennylane import qchem
 import matplotlib.pyplot as plt
 import OperatorPool_TFIM as OP
+from random import sample
+from random import seed
+import pandas as pd
+
+prova = 0
+df = pd.DataFrame()
 
 qubits = 4
+learning_rate = 0.3
 dev = qml.device("default.qubit", wires = qubits)
 dev_draw = qml.device('qiskit.aer', wires=qubits)
-opt = qml.GradientDescentOptimizer(stepsize=0.01)
+opt = qml.GradientDescentOptimizer(stepsize=learning_rate)
 
 threshold = 5*10**(-3) #for the gradient
 convergence=10**(-5) #for the VQE algorithm
-params_selected = []#values of the parameters selected in the VQE agorithm
-arg_selected = []#operators from the operator pool selected (which argument)
+params_selected = [] #values of the parameters selected in the VQE agorithm
+arg_selected = [] #operators from the operator pool selected (which argument)
 theta = 0.0 #initialization of the parameter used in the VQE algorithm
 energy, phi = [], []
 
@@ -23,12 +34,11 @@ ZZ_coefs = [1.0]*qubits
 TFIM_H = OP.TFIM_Hamiltonian(ZZ_coefs, X_coefs)
 print('TFIM Hamiltonian: \n', TFIM_H)
 
-#finding the eigenvalues of the Hamiltonian:
+#Finding the ground state of the Hamiltonian through its eigenvalues:
 eigenvals,eigenvects=np.linalg.eigh(TFIM_H)
 print('Eigeinvalues: ', eigenvals)
 ground_state = min(np.real(eigenvals))
 print('Ground state energy: ', ground_state)
-
 
 #Definition of the operator pool
 def apply(params, operator):
@@ -46,14 +56,27 @@ OP.Operator_ZY(qubits, operator_pool)
 OP.Operator_ZZX(qubits, operator_pool)
 OP.Operator_ZZZZ(qubits, operator_pool)
 
+#new operator defintion (not belonging to the Hamiltonian)
+OP.Operator_XY(qubits, operator_pool)
+OP.Operator_ZX(qubits, operator_pool)
+OP.Operator_YY(qubits, operator_pool)
+OP.Operator_ZXY(qubits, operator_pool)
+
 print('Dimension of the operator pool', len(operator_pool))
 
-'''
-#creating the observables in order to compute the gradient
-print('Observables')
-observables = []
-observables = OP.observables(qubits, observables)
-'''
+#sampling only some oeprators from the operator pool
+n_operators = 30
+
+seed(5)
+operator_pool = sample(operator_pool, n_operators)
+print('Dimension of the reduced operator pool', len(operator_pool))
+
+
+#DEFINITION OF THE INITIAL STATE
+params_initial = np.pi * np.random.rand(qubits, 3)
+#params_initial = [[2.97696855, 3.10633172, 0.76956354], [0.46448793, 2.23320824, 2.50167315], [0.92231833, 0.77118083, 1.15315358], [2.50418158, 2.32937573, 2.23247663]]
+
+
 @qml.qnode(dev)
 def circuit(param, wires=range(qubits), number=0):
     """
@@ -66,9 +89,11 @@ def circuit(param, wires=range(qubits), number=0):
     Returns:expectation value of the Hamiltonian
 
     """
-    for i in range(int(qubits)):
-        qml.Hadamard(wires=i)
-    # adding the already selected operators
+    for i in range (qubits):
+        angles = params_initial[i][:]
+        qml.Rot(angles[0], angles[1], angles[2], wires=i)
+
+    #adding the already selected operators
     for j in range(len(arg_selected)):
         apply(params_selected[j], operator_pool[arg_selected[j]])
 
@@ -77,74 +102,37 @@ def circuit(param, wires=range(qubits), number=0):
     return qml.expval(qml.Hermitian(TFIM_H, wires=range(qubits)))
 
 drawer = qml.draw(circuit)
+result = circuit(param=0, number = 0)
 print('Circuit: ')
-print('Result: ', circuit(param=0, number=28))
-print(drawer(param=0, number=28))
-
-'''
-@qml.qnode(dev)
-def circuit_gradient(wires=range(qubits), number=0):
-    """
-    Circuit defintion to compute the gradient with the commutator of the Hamiltonian
-    and the observables in the operator pool
-    Args:
-        wires: 
-        number: corresponding operator in the operator pool
-
-    Returns: expectation value of the commutator[H,A] where A is the operator in the operator pool
-
-    """
-    for i in range(int(qubits)):
-        qml.Hadamard(wires=i)
-    #adding the already selected operators
-    for j in range(len(arg_selected)):
-        apply(params_selected[j], operator_pool[arg_selected[j]])
-
-    Observable_left = np.dot(TFIM_H, observables[number])
-    Observable_right = np.dot(observables[number],TFIM_H)
-
-    commutator = 1j*(Observable_left-Observable_right)
-    return qml.expval(qml.Hermitian(commutator, wires=[0,1,2,3]))
-
-
-drawer_gradient = qml.draw(circuit_gradient)
-print('Circuit: ')
-print('Result: ', circuit_gradient(number=1))
-print(drawer_gradient(number=1))
-'''
+print(drawer(param=0, number=0))
+energy.append(result) #appending energy of initial state
 
 @qml.qnode(dev)
 def circuit_VQE(params, wires=range(qubits)):
     """
-    Circuit definition to compute the VQE algorithm
-    Returns: Expectation value if the Hamiltonian
-
+    Circuit definition to perform the VQE algorithm
+    Returns: Expectation value of the Hamiltonian
     """
-    for i in range(int(qubits)):
-        qml.Hadamard(wires=i)
+    for i in range (qubits):
+        angles = params_initial[i][:]
+        qml.Rot(angles[0], angles[1], angles[2], wires=i)
+
     #adding the chosen operators
     for j in range(len(arg_selected)):
         apply(params[j], operator_pool[arg_selected[j]])
 
     return qml.expval(qml.Hermitian(TFIM_H, wires=range(qubits)))
 
-
 #running the VQE-Adapt algorithm
 for i in range(30):
     print(i)
     circuit_gradients = []
-    #evaluating the gradient of the circuit using the commutation relation
-    #for i in range(len(operator_pool)):
-    #    grad = circuit_gradient(wires=range(qubits), number=i)
-    #    circuit_gradients.append(grad)
 
     #evaluating the gradient using the grad function
     for i in range(len(operator_pool)):
         ansatz = lambda param, number=i: circuit(param, wires=range(qubits), number=number)
         grad = qml.grad(ansatz)
         circuit_gradients.append(grad(theta))
-
-    print('Gradient: ', circuit_gradients)
 
     #taking tha max value of the gradient
     max_grad = max(np.abs(circuit_gradients))
@@ -155,7 +143,6 @@ for i in range(30):
 
     #saving the argument selected in arg_selected
     arg_selected.append(np.argmax(np.abs(circuit_gradients)))
-    print(arg_selected)
 
     #applying the VQE to find the best set of parameters
     phi.append(theta)#parameter initialization
@@ -166,15 +153,20 @@ for i in range(30):
     phi = opt.step(circuit_VQE, phi)
     energy_new = circuit_VQE(phi)
 
+    j = 0
     while (abs(energy_new - energy_old) > convergence):
+        #if(j>50):
+        #    break
         energy_old = energy_new
         phi = opt.step(circuit_VQE, phi)
         energy_new = circuit_VQE(phi)
+        j += 1
 
-    #print('Best parameter', phi)
     print('Optimized energy: ', energy_new)
     params_selected = phi
     energy.append(energy_new)
+    if (energy_new < -5.22):
+        break
 
 
 #building the final circuit and evaluating the final energy
@@ -183,8 +175,10 @@ def circuit_final(wires=range(qubits)):
     Final circuit: built with the selected operators and parameters
     Returns:Expectation value of the Hamiltonian
     """
-    for i in range(qubits):
-        qml.Hadamard(wires=i)
+    for i in range (qubits):
+        angles = params_initial[i][:]
+        qml.Rot(angles[0], angles[1], angles[2], wires=i)
+
     # adding chosen operators and parameters
     for j in range(len(arg_selected)):
         apply(params_selected[j], operator_pool[arg_selected[j]])
@@ -195,27 +189,12 @@ qnode_final = qml.QNode(circuit_final, dev)
 drawer = qml.draw(qnode_final)
 print('Circuit: ')
 print(drawer())
+specs = qnode_final.specs
+print('Circuit Features: ', specs)
 
 qnode_final_draw = qml.QNode(circuit_final, dev_draw)
 result = qnode_final_draw()
-dev_draw._circuit.draw(output='mpl',filename = '/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/Circuit_TFIM.pdf' )
-
-
-@qml.qnode(dev)
-def circuit_final_state(wires=range(qubits)):
-    """
-    Circuit to check the final state
-    Returns: probabilities for all the combination of possible results
-    """
-    for i in range(qubits):
-        qml.Hadamard(wires=i)
-    # adding the chosen operators
-    for j in range(len(arg_selected)):
-        apply(params_selected[j], operator_pool[arg_selected[j]])
-
-    return qml.probs(wires=range(qubits))
-
-print('State probabilities: ', circuit_final_state())
+dev_draw._circuit.draw(output='mpl',filename = '/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/TFIM/Circuit_TFIM_random_intial_state.pdf' )
 
 energy_final = qnode_final()
 print('Ground state energy = ', energy_final)
@@ -223,12 +202,20 @@ print('How many operators: ', len(arg_selected))
 print('Used operators: ', arg_selected)
 print('Parameters: ', params_selected)
 
+new_row= pd.Series(data={"Initial state":params_initial, "Energy": energy, "Learning rate": learning_rate,
+                         "Operators": len(operator_pool), "Operator_pool": operator_pool,
+                         "Used Operators": arg_selected, "Parameters": params_selected,
+                         "Circuit features": specs, "Circuit depth": specs.get('depth')}, name='{}'.format(i))
+df = df.append(new_row, ignore_index=False)
+df.to_csv('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/Random_state_prova_{}_{}.csv'.format(prova, len(operator_pool)))
+
+
 plt.figure()
 plt.title("Energy Optimization")
-plt.plot(energy)
 plt.axhline(y=ground_state, color='r', linestyle='-', label='Ground state energy')
+plt.plot(energy,'o-')
 plt.xlabel("Iterations")
 plt.ylabel("Energy, Ha")
 plt.legend()
-plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/TFIM_optimization.pdf')
+plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/TFIM/TFIM_optimization_random_initial_state.pdf')
 plt.show()
