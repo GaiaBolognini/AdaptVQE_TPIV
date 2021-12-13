@@ -31,32 +31,31 @@ energies_GD=[]
 energies_QNG = []
 
 for i in range(prove):
-    df_GD = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/QNG_vs_GD/Gradient_descent_limited_VQE.txt', delimiter=',', skiprows=i, nrows=1, header=None)
+    df_GD = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/QNG_vs_GD/Gradient_descent.txt', delimiter=',', skiprows=i, nrows=1, header=None)
     energies_GD.append(df_GD.values[0])
 
     if (len(energies_GD[-1]) < len_complete):
         energies_GD[-1] = adding_dimension(energies_GD[-1], len_complete)
 
-    df_QNG = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/QNG_vs_GD/Quantum_Natural_Gradient_limited_VQE.txt', delimiter=',', skiprows=i, nrows=1, header=None)
+    df_QNG = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/QNG_vs_GD/Quantum_Natural_Gradient.txt', delimiter=',', skiprows=i, nrows=1, header=None)
     energies_QNG.append(df_QNG.values[0])
 
     if (len(energies_QNG[-1]) < len_complete):
         energies_QNG[-1] = adding_dimension(energies_QNG[-1], len_complete)
 
-print(energies_GD)
+
 df_GD = pd.DataFrame(energies_GD).melt()
-print(df_GD)
 df_QNG = pd.DataFrame(energies_QNG).melt()
 
 
 sns.set()
 plt.axhline(y=ground_state, color='r', linestyle='-', label= 'Ground State Energy')
-sns.lineplot(x="variable", y="value", data=df_GD)
-sns.lineplot(x="variable", y="value", data=df_QNG)
-plt.legend(labels=['GD', 'QNG'])
+sns.lineplot(x="variable", y="value", data=df_GD, label = 'GD')
+sns.lineplot(x="variable", y="value", data=df_QNG, label = 'QNG')
+
 plt.xlabel("Iterations")
 plt.ylabel("Energy, Ha")
-plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/QNG_vs_GD/QNG_vs_GD_limited_VQE.pdf')
+plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/QNG_vs_GD/QNG_vs_GD.pdf')
 
 
 
