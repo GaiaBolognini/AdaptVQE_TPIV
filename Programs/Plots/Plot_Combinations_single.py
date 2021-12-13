@@ -33,7 +33,7 @@ def adding_dimension (energy, len_compl):
     return energy
 
 for prova in range(prove):
-    df = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/Random_initial_state/Random_initial_state_prova_{}_20.txt'.format(prova), delimiter=',', skiprows=3, nrows=1, header=None)
+    df = pd.read_table('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Results/Combinations2_and_singles/Combinations2_and_singles_{}_20_QNG.txt'.format(prova), delimiter=',', skiprows=3, nrows=1, header=None)
     energies.append(df.values[0])
 
     #adding dimension
@@ -53,10 +53,9 @@ df_combinations = pd.DataFrame(energies_combinations).melt()
 
 sns.set()
 plt.axhline(y=ground_state, color='r', linestyle='-', label= 'Ground State Energy')
-sns.lineplot(x="variable", y="value", data=df)
-sns.lineplot(x="variable", y="value", data=df_combinations)
-plt.legend(labels=['One operator', 'Combinations'])
+sns.lineplot(x="variable", y="value", data=df_combinations, label = 'GD')
+sns.lineplot(x="variable", y="value", data=df, label='QNG')
 plt.xlabel("Iterations")
 plt.ylabel("Energy, Ha")
-plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/Combinations/Combinations_vs_singles.pdf')
+plt.savefig('/mnt/c/Users/gaias/Desktop/Adapt_VQE_TPIV/Images/Combinations/Combinations_vs_singles_QNG.pdf')
 
